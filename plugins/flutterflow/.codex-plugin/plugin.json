@@ -1,6 +1,6 @@
 {
   "name": "flutterflow",
-  "version": "0.1.0+codex.20260630150222",
+  "version": "0.1.0+codex.20260630152346",
   "description": "Use the FlutterFlow CLI from Codex, with optional workspace-bound MCP setup.",
   "author": {
     "name": "FlutterFlow",
@@ -33,6 +33,9 @@
       "Validate and apply this FlutterFlow DSL change.",
       "Export FlutterFlow code for this project."
     ],
-    "brandColor": "#4B39EF"
+    "brandColor": "#4B39EF",
+    "composerIcon": "./assets/logo.png",
+    "logo": "./assets/logo.png",
+    "logoDark": "./assets/logo.png"
   }
 }
