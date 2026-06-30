@@ -8,6 +8,22 @@ description: Use when working with FlutterFlow AI workspaces or the FlutterFlow 
 Use this skill for tasks that mention FlutterFlow, FlutterFlow AI, `flutterflow ai`,
 FlutterFlow CLI, or FlutterFlow project edits.
 
+## Preconditions — read before running anything
+
+This plugin is **CLI-first**: every capability works by running `flutterflow ai …`
+in a shell. A working shell and the `flutterflow` CLI are a hard requirement. This
+plugin has **no** GUI/desktop/browser path and registers **no** MCP server by
+default.
+
+If the shell, command runner, or file-read tooling is unavailable — e.g. a command
+fails to launch with `Failed to create unified exec process: No such file or
+directory` (which usually means the thread's working directory no longer exists, not
+a permission denial) — **STOP**. Tell the user the plugin needs a working shell and
+ask them to reopen the thread in a folder that exists (verify with `pwd`), then end
+the turn. Do **not** retry alternate shells, enumerate MCP resources, read the
+terminal, open desktop apps (e.g. FlutterFlow Campus), or drive a web browser — none
+of those can perform FlutterFlow operations.
+
 ## Command Resolution
 
 Prefer the installed `flutterflow` binary for normal use:
@@ -36,6 +52,16 @@ The helper preserves the caller's working directory. It runs a globally
 installed `flutterflow` if present; to run from a local `flutterflow_cli` source
 checkout instead, point it there with
 `FLUTTERFLOW_CLI_DIR=/path/to/packages/flutterflow_cli`.
+
+### Docs and reference specs
+
+`flutterflow ai docs [topic]` only works **inside an initialized workspace** — before
+`init` it fails with "No FlutterFlow AI workspace found … Run `flutterflow ai init`
+first." Do **not** grep `.pub-cache` for the DSL API. The canonical specs are cached
+on disk at `~/.flutterflow/packages/<env>/<hash>/` (the `<hash>` varies per SDK build
+— pick the most recent). Useful read-only references there: `specs/dsl/*.dart` (worked
+example flows), `doc/design_quality.md`, and `lib/src/docs/`. Read those when you
+cannot run `flutterflow ai docs`.
 
 ## Authentication
 
@@ -96,6 +122,20 @@ where to get a key — the FlutterFlow account page,
 
 Never echo a key, store it in repo files, or include it in final answers.
 
+### When auth is missing — stop and hand off
+
+When the preflight prints `ff_auth: missing` and the task needs to create, run, or
+push (anything beyond read-only/orienting), treat it as a **hard stop, not a detour**.
+Do **not** author DSL, scaffold packages, or do build work you cannot `validate`/`run`
+— that work is throwaway until a workspace and auth exist. Instead, reply with ONE
+crisp, self-contained setup message: (1) the account-page link
+<https://app.flutterflow.io/account>, and (2) the recommended path — open a terminal
+and run `flutterflow ai init <workspace>`, entering the key when prompted. Then end the
+turn and wait; resume only after the user confirms auth is set. (If the user explicitly
+asks you to draft the DSL while they set up auth, you may — but say plainly it cannot be
+validated or pushed yet, and author it inside a real workspace, never a standalone
+package.)
+
 If a saved credential exists but the server rejects it, tell the user to refresh
 the key from FlutterFlow account settings and run `flutterflow ai logout` only if
 they want to inspect or clear saved base URLs.
@@ -143,6 +183,16 @@ creating a duplicate:
 flutterflow ai validate <file.dart>
 flutterflow ai run <file.dart> --find-or-create
 ```
+
+Do **not** hand-author a standalone Dart package or path-pin a `pubspec.yaml` to the
+cached SDK under `~/.flutterflow/packages/...`. `flutterflow ai init` scaffolds the
+workspace for you — including its `pubspec.yaml` (which depends on the per-workspace
+vendored SDK at `./.flutterflow/sdk/flutterflow_ai`) and starter `dsl/create.dart` +
+`dsl/edit.dart`. Author your DSL as a file **inside** that workspace; `validate`/`run`
+expect that layout, and a package pinned to the global cache is not portable (the cache
+is GC'd/overwritten on the next `init`/`upgrade`). Also note `create.dart` is
+**one-shot**: re-running it against an existing project fails with duplicate-name
+errors — after the first successful `run`, make further changes via `dsl/edit.dart`.
 
 ### Edit an existing project
 
@@ -194,7 +244,9 @@ FLUTTERFLOW_AI_WORKSPACE=/absolute/path/to/workspace \
 
 ## Standard Agent Workflow
 
-1. Run the auth preflight above.
+1. Run the auth preflight above. If it reports `ff_auth: missing` and the task needs
+   to create/run/push, stop and follow "When auth is missing — stop and hand off"
+   before doing steps 2+.
 
 2. Identify the workspace:
 
