@@ -98,6 +98,8 @@ MCP for every thread where this plugin is enabled.
 
 ## Authentication Notes
 
+- Get an API key from the FlutterFlow account page:
+  <https://app.flutterflow.io/account>.
 - `flutterflow ai` uses `FF_API_KEY`, or the credential store created by
   `flutterflow ai init`.
 - `flutterflow export-code` and `flutterflow deploy-firebase` use
@@ -118,9 +120,14 @@ else
 fi
 ```
 
-If auth is missing, prefer setting `FF_API_KEY` in the session environment, or
-run `flutterflow ai init <workspace>` interactively so the CLI prompts for and
-saves the key. Avoid the `--api-key` flag: it places the secret on the process
+If auth is missing, grab a key from <https://app.flutterflow.io/account>. The
+most reliable path — especially in the Codex app, whose shell may not inherit a
+key you export elsewhere — is to **open a terminal** (macOS Terminal or your
+editor's integrated terminal) and run `flutterflow ai init <workspace>`
+interactively; the CLI prompts for the key and saves it to
+`~/.flutterflow/credentials.json`, which later commands reuse. Alternatively,
+export `FF_API_KEY` in your shell profile and relaunch Codex. Avoid the
+`--api-key` flag: it places the secret on the process
 argument list (visible via `ps`/`/proc` and shell history), and
 `flutterflow ai init --api-key` *persists* the key to disk
 (`~/.flutterflow/credentials.json` and the workspace `.env`) — it is not

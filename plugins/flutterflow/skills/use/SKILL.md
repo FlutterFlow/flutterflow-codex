@@ -46,8 +46,12 @@ checkout instead, point it there with
   plaintext (mode 0600 on POSIX). Never `cat`, copy, echo, or commit it; the
   preflight below only tests for its presence.
 - Never print tokens, write them into repo files, or include them in final answers.
-- If credentials are missing, ask the user for the desired auth path or ask them
-  to run `flutterflow ai init` interactively.
+- Get an API key from the FlutterFlow account page:
+  <https://app.flutterflow.io/account>.
+- If credentials are missing, point the user to that page and have them set the
+  key up out-of-band (see Auth Preflight) — e.g. by opening a terminal and
+  running `flutterflow ai init` interactively. Never accept a key pasted into the
+  chat.
 
 ## Auth Preflight
 
@@ -64,19 +68,33 @@ else
 fi
 ```
 
-If auth is missing, do not keep retrying failing commands. Ask the user to choose
-one of these paths:
+If auth is missing, do not keep retrying failing commands. First tell the user
+where to get a key — the FlutterFlow account page,
+<https://app.flutterflow.io/account> — then ask them to set it up out-of-band
+(never paste a key into the chat) using one of these paths:
 
-- Set `FF_API_KEY` in the terminal/session environment.
-- Run `flutterflow ai init <workspace>` interactively so the CLI can prompt and
-  save the key.
+- **Open a terminal and run `init` there (recommended).** If you are in the Codex
+  app, open macOS Terminal (Cmd-Space → "Terminal") or your editor's integrated
+  terminal — Codex's own shell may not inherit a key you export elsewhere. In
+  that terminal run:
+
+  ```bash
+  flutterflow ai init <workspace>
+  ```
+
+  Enter the key when prompted; the CLI saves it to
+  `~/.flutterflow/credentials.json`, which later `flutterflow ai` commands reuse
+  automatically. Then come back and tell me it's ready.
+- Or export `FF_API_KEY` in your shell profile (e.g. `~/.zshrc`) and relaunch
+  Codex so its shell inherits it.
 - For a single read-only command, pass a transient key inline as an environment
   variable: `FF_API_KEY=<key> flutterflow ai status <project-id>`. Avoid the
   `--api-key` flag — it puts the secret on the argument list (visible via
   `ps`/`/proc` and shell history), and `flutterflow ai init --api-key` persists
   the key to disk (`~/.flutterflow/credentials.json` and the workspace `.env`),
-  so it is not one-time. Never echo a key, store it in repo files, or include it
-  in final answers.
+  so it is not one-time.
+
+Never echo a key, store it in repo files, or include it in final answers.
 
 If a saved credential exists but the server rejects it, tell the user to refresh
 the key from FlutterFlow account settings and run `flutterflow ai logout` only if
