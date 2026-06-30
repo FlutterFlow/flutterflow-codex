@@ -1,6 +1,6 @@
 {
   "name": "flutterflow",
-  "version": "0.1.0+codex.20260630152501",
+  "version": "0.1.0+codex.20260630152951",
   "description": "Use the FlutterFlow CLI from Codex, with optional workspace-bound MCP setup.",
   "author": {
     "name": "FlutterFlow",

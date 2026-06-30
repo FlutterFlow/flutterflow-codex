@@ -102,6 +102,52 @@ flutterflow ai init <workspace-name-or-path> --project <project-id>
 - If a workspace already exists, `cd` into it and run `flutterflow ai refresh-workspace`
   or `flutterflow ai upgrade --check` instead of reinitializing.
 
+## Create A New App vs Edit An Existing Project
+
+Decide which path the user wants before running anything. The two starter
+prompts map directly to these flows.
+
+### Create a new app
+
+Use this when there is no FlutterFlow project yet. Omit `--project` so the CLI
+uses the create-new flow, then `cd` into the scaffold:
+
+```bash
+flutterflow ai init <workspace-name-or-path>
+cd <workspace-name-or-path>
+```
+
+Author the app as Dart DSL, then validate and apply. The first `run` creates the
+project; pass `--find-or-create` to reuse a same-named project rather than
+creating a duplicate:
+
+```bash
+flutterflow ai validate <file.dart>
+flutterflow ai run <file.dart> --find-or-create
+```
+
+### Edit an existing project
+
+Use this when the user already has a FlutterFlow project.
+
+1. You need the project id — it is in the project URL
+   (`app.flutterflow.io/project/<project-id>`). If the user has not provided it,
+   ask for it; there is no CLI command that lists the projects in an account.
+2. Bind a workspace to that project, then `cd` in:
+
+```bash
+flutterflow ai init <workspace-name-or-path> --project <project-id>
+cd <workspace-name-or-path>
+```
+
+   If a workspace for this project already exists, `cd` into it and run
+   `flutterflow ai refresh-workspace` instead of re-initializing.
+3. Orient before changing anything (see Standard Agent Workflow below), then
+   author, validate, and run DSL edits.
+
+Either way: always `validate` before `run`, and never `init` into a populated
+non-workspace directory.
+
 ## MCP Usage
 
 This plugin is CLI-first and does not register an MCP server by default. Do not
