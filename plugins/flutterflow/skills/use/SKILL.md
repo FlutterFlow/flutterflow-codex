@@ -94,47 +94,66 @@ else
 fi
 ```
 
-If auth is missing, do not keep retrying failing commands. First tell the user
-where to get a key — the FlutterFlow account page,
-<https://app.flutterflow.io/account> — then ask them to set it up out-of-band
-(never paste a key into the chat) using one of these paths:
-
-- **Open a terminal and run `init` there (recommended).** If you are in the Codex
-  app, open macOS Terminal (Cmd-Space → "Terminal") or your editor's integrated
-  terminal — Codex's own shell may not inherit a key you export elsewhere. In
-  that terminal run:
-
-  ```bash
-  flutterflow ai init <workspace>
-  ```
-
-  Enter the key when prompted; the CLI saves it to
-  `~/.flutterflow/credentials.json`, which later `flutterflow ai` commands reuse
-  automatically. Then come back and tell me it's ready.
-- Or export `FF_API_KEY` in your shell profile (e.g. `~/.zshrc`) and relaunch
-  Codex so its shell inherits it.
-- For a single read-only command, pass a transient key inline as an environment
-  variable: `FF_API_KEY=<key> flutterflow ai status <project-id>`. Avoid the
-  `--api-key` flag — it puts the secret on the argument list (visible via
-  `ps`/`/proc` and shell history), and `flutterflow ai init --api-key` persists
-  the key to disk (`~/.flutterflow/credentials.json` and the workspace `.env`),
-  so it is not one-time.
-
-Never echo a key, store it in repo files, or include it in final answers.
+If the preflight prints `ff_auth: missing`, do not keep retrying failing commands
+and do not paste a key into the chat. **Stop and walk the user through setup** — see
+**When auth is missing — stop and hand off** below.
 
 ### When auth is missing — stop and hand off
 
 When the preflight prints `ff_auth: missing` and the task needs to create, run, or
 push (anything beyond read-only/orienting), treat it as a **hard stop, not a detour**.
 Do **not** author DSL, scaffold packages, or do build work you cannot `validate`/`run`
-— that work is throwaway until a workspace and auth exist. Instead, reply with ONE
-crisp, self-contained setup message: (1) the account-page link
-<https://app.flutterflow.io/account>, and (2) the recommended path — open a terminal
-and run `flutterflow ai init <workspace>`, entering the key when prompted. Then end the
-turn and wait; resume only after the user confirms auth is set. (If the user explicitly
-asks you to draft the DSL while they set up auth, you may — but say plainly it cannot be
-validated or pushed yet, and author it inside a real workspace, never a standalone
-package.)
+— that work is throwaway until a workspace and auth exist.
+
+Instead, **stop and give the user one simple, self-contained setup message, then
+wait.** Assume they may know nothing about terminals or code: use plain numbered
+steps, **fill in their real folder path and app name** (never leave `<placeholders>`),
+show the terminal-launch step for their operating system (you can tell which from the
+environment — show only that one; include both only if unsure), and tell them to
+copy-paste one line at a time. Resume only after they confirm it's ready.
+
+Use this template, substituting real values:
+
+> I can build this — FlutterFlow just needs to sign in first. It takes about a
+> minute. Here's exactly what to do:
+>
+> **1. Get your API key.** Open the FlutterFlow account page —
+> https://app.flutterflow.io/account — and copy your API key. Keep that tab open.
+>
+> **2. Open a terminal** (a window where you type commands):
+> - **On a Mac:** press **Cmd + Space**, type **Terminal**, and press **Enter**.
+> - **On Windows:** click **Start** (or press the **Windows key**), type
+>   **PowerShell**, and press **Enter**.
+>
+> **3. Copy and paste these lines one at a time, pressing Enter after each:**
+>
+> ```bash
+> cd "<parent-folder>"
+> flutterflow ai init <app-name>
+> ```
+>
+> **4. When it asks for your API key, paste it and press Enter.** The key won't
+> show on screen as you paste — that's normal (it's hidden for security). If it
+> asks anything else, just press Enter to accept the defaults.
+>
+> **5. Come back here and type "ready".** I'll build your app, check it, and apply
+> it for you.
+
+Filling in the template:
+- `<parent-folder>` = the folder the app should live in (use the user's current
+  directory or `~/Documents`); `<app-name>` = the new workspace folder, e.g.
+  `habit_tracker`. For a Windows user, write a Windows path instead, e.g.
+  `cd "$HOME\Documents"`.
+- Running `flutterflow ai init` this way both signs in (saving the key to
+  `~/.flutterflow/credentials.json`) **and** creates the workspace, so once the user
+  says "ready" you can `cd` into `<parent-folder>/<app-name>` and start building.
+- Never accept a key pasted into the chat; never echo, store, or print it.
+
+**Advanced alternatives** (only if the user prefers): export `FF_API_KEY` in their
+shell profile and relaunch Codex; or, for a single read-only command, prefix it inline
+as `FF_API_KEY=<key> flutterflow ai status <project-id>`. Avoid the `--api-key` flag —
+it puts the secret on the argument list and `init --api-key` persists it to disk, so it
+is not one-time.
 
 If a saved credential exists but the server rejects it, tell the user to refresh
 the key from FlutterFlow account settings and run `flutterflow ai logout` only if
