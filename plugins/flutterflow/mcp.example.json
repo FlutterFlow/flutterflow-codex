@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "flutterflow": {
+      "command": "./scripts/flutterflow-mcp.sh",
+      "args": [],
+      "cwd": "."
+    }
+  }
+}

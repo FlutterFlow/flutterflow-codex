@@ -1,0 +1,38 @@
+{
+  "name": "flutterflow",
+  "version": "0.1.0+codex.20260630150222",
+  "description": "Use the FlutterFlow CLI from Codex, with optional workspace-bound MCP setup.",
+  "author": {
+    "name": "FlutterFlow",
+    "email": "support@flutterflow.io",
+    "url": "https://flutterflow.io"
+  },
+  "homepage": "https://docs.flutterflow.io",
+  "license": "BSL-1.1",
+  "keywords": [
+    "flutterflow",
+    "mcp",
+    "cli",
+    "agent",
+    "flutter"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "FlutterFlow",
+    "shortDescription": "Build and edit FlutterFlow apps with the CLI.",
+    "longDescription": "Adds FlutterFlow AI guidance for CLI-first workflows. Use it to initialize workspaces, inspect projects, plan changes, validate Dart DSL edits, apply updates, refresh workspace context, run diagnostics, and export code through the FlutterFlow CLI. MCP is documented as an optional workspace-bound setup, not started by default.",
+    "developerName": "FlutterFlow",
+    "category": "Developer Tools",
+    "capabilities": [
+      "CLI",
+      "Project editing",
+      "Workspace diagnostics"
+    ],
+    "defaultPrompt": [
+      "Inspect my FlutterFlow AI workspace.",
+      "Validate and apply this FlutterFlow DSL change.",
+      "Export FlutterFlow code for this project."
+    ],
+    "brandColor": "#4B39EF"
+  }
+}
