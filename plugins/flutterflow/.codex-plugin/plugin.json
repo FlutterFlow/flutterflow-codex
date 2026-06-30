@@ -1,6 +1,6 @@
 {
   "name": "flutterflow",
-  "version": "0.1.0+codex.20260630152346",
+  "version": "0.1.0+codex.20260630152501",
   "description": "Use the FlutterFlow CLI from Codex, with optional workspace-bound MCP setup.",
   "author": {
     "name": "FlutterFlow",
@@ -29,9 +29,9 @@
       "Workspace diagnostics"
     ],
     "defaultPrompt": [
-      "Inspect my FlutterFlow AI workspace.",
-      "Validate and apply this FlutterFlow DSL change.",
-      "Export FlutterFlow code for this project."
+      "Create a new FlutterFlow app.",
+      "Edit an existing FlutterFlow project.",
+      "Export my FlutterFlow project to Flutter code."
     ],
     "brandColor": "#4B39EF",
     "composerIcon": "./assets/logo.png",
