@@ -1,169 +1,135 @@
 # FlutterFlow Codex Plugin
 
-A local Codex plugin for CLI-first FlutterFlow AI workflows.
+Build and edit [FlutterFlow](https://flutterflow.io) apps from
+[Codex](https://developers.openai.com/codex) — describe what you want in plain
+language and the agent drives the FlutterFlow CLI to scaffold workspaces, author
+changes as Dart DSL, validate them, and apply them.
 
-It ships one plugin, `flutterflow`, which provides:
+This repo ships one plugin, `flutterflow`, which adds:
 
-- A Codex skill for FlutterFlow AI workspace setup, inspection, validation, run,
-  refresh, diagnostics, and export-code workflows.
-- Helper scripts that resolve either a globally installed `flutterflow` command
-  or a local `flutterflow_cli` source checkout (set `FLUTTERFLOW_CLI_DIR` to its
-  path).
-- An optional MCP example for initialized FlutterFlow AI workspaces. MCP is not
-  registered or started by default.
+- A **skill** that teaches Codex the FlutterFlow AI workflow — workspace setup,
+  inspection, validating and running Dart DSL edits, diagnostics, and code export.
+- **Helper scripts** that resolve a globally installed `flutterflow` CLI (or a
+  local `flutterflow_cli` source checkout).
+- An **optional MCP example** for workspace-bound setups. MCP is not registered
+  or started by default.
 
 ## Prerequisites
 
-- Dart/Flutter available on PATH.
-- A FlutterFlow API token from <https://app.flutterflow.io/account>.
-- `python3` on PATH — only for the plugin-validation scripts in
-  [Local Development](#local-development) below (on Windows, use `py -3`).
+- [Codex](https://developers.openai.com/codex) installed.
+- Dart/Flutter on your PATH.
+- A FlutterFlow API key — get one from
+  [your FlutterFlow account](https://app.flutterflow.io/account).
 
-Install or update the CLI:
+Install or update the FlutterFlow CLI:
 
 ```bash
 dart pub global activate flutterflow_cli
 ```
 
-## Install In Codex
+## Install
 
-From this repo root:
+From a clone of this repo:
 
 ```bash
 codex plugin marketplace add .
 codex plugin add flutterflow@flutterflow
 ```
 
-Start a new Codex thread after installing so the skill is loaded.
+Start a new Codex thread so the skill loads. (A public Plugin Directory listing
+is coming soon; until then, install from this repo.)
 
-## Use The CLI
+## Use it
 
-Create a workspace:
+Once installed, just ask Codex in plain language:
+
+> Create a new FlutterFlow app called `habit_tracker`.
+
+> Edit my FlutterFlow project — add a settings screen. The project id is `<id>`.
+
+> Export my FlutterFlow project to Flutter code.
+
+The skill walks through auth, workspace setup, validation, and applying the
+change for you.
+
+### Use the CLI directly (optional)
+
+You can also run the FlutterFlow CLI yourself:
 
 ```bash
-flutterflow ai init my-app
+flutterflow ai init my-app                   # new workspace
+flutterflow ai init my-app --project <id>    # bind to an existing project
+flutterflow ai status <project-id>           # inspect
+flutterflow ai run <file.dart>               # apply a Dart DSL change
 ```
 
-Or bind a workspace to an existing FlutterFlow project:
-
-```bash
-flutterflow ai init my-app --project <project-id>
-```
-
-Run common workspace commands from inside that workspace:
-
-```bash
-flutterflow ai upgrade --check
-flutterflow ai status <project-id>
-flutterflow ai inspect <project-id>
-flutterflow ai validate <file.dart>
-flutterflow ai run <file.dart>
-```
-
-If `flutterflow` is not globally installed, use the plugin helper. What matters is
-the helper's own location, not your current directory, so run it from the repo
-root or give an absolute path:
+If `flutterflow` isn't on your PATH, the plugin bundles a helper. Its own
+location matters (not your working directory), so run it from the repo root or
+give an absolute path:
 
 ```bash
 /absolute/path/to/plugins/flutterflow/scripts/flutterflow-cli.sh ai --help
 ```
 
-## Use MCP
+## Authentication
 
-This plugin does not auto-register MCP. That is intentional: `flutterflow ai mcp`
-requires one concrete initialized workspace, while this plugin should be usable
-from any Codex thread.
+- `flutterflow ai` uses `FF_API_KEY` or the credential store created by
+  `flutterflow ai init`. `export-code` and `deploy-firebase` use
+  `FLUTTERFLOW_API_TOKEN`.
+- **Recommended:** run `flutterflow ai init` once in a terminal — it prompts for
+  your key and saves it to `~/.flutterflow/credentials.json` (mode `0600`) for
+  later commands. In the Codex app especially, this is more reliable than relying
+  on an exported env var the app's shell may not inherit.
+- Avoid the `--api-key` flag: it puts the secret on the process argument list and
+  persists it to disk (both the credential store and the workspace `.env`).
+- Never commit tokens. This repo's `.gitignore` covers `.env`, `.env.*`, and
+  `credentials.json`; keep any workspace `.env` out of version control too.
 
-For an advanced workspace-bound MCP setup, use
-[mcp.example.json](plugins/flutterflow/mcp.example.json)
-as a starting point. The launcher resolves the workspace from:
+## MCP (optional)
 
-1. `FLUTTERFLOW_AI_WORKSPACE`
-2. `CODEX_WORKSPACE_ROOT`
-3. the process working directory
-
-For reliable MCP startup, set:
-
-```bash
-export FLUTTERFLOW_AI_WORKSPACE=/absolute/path/to/flutterflow-ai-workspace
-```
-
-Then start the launcher manually for a smoke test:
+This plugin does not auto-register an MCP server — `flutterflow ai mcp` needs one
+concrete workspace, while the plugin should work from any Codex thread. For a
+workspace-bound setup, copy
+[mcp.example.json](plugins/flutterflow/mcp.example.json), fill in absolute paths,
+and point `FLUTTERFLOW_AI_WORKSPACE` at your workspace. Smoke-test the launcher:
 
 ```bash
 FLUTTERFLOW_AI_WORKSPACE=/absolute/path/to/workspace \
   /absolute/path/to/plugins/flutterflow/scripts/flutterflow-mcp.sh
 ```
 
-To make MCP automatic later, create a workspace-specific plugin/config that
-points at an absolute workspace path. Do not rename `mcp.example.json` to
-`.mcp.json` in this generic plugin unless you intentionally want Codex to start
-MCP for every thread where this plugin is enabled.
+Don't rename `mcp.example.json` to `.mcp.json` unless you want Codex to start MCP
+for every thread where this plugin is enabled.
 
-## Authentication Notes
+## Development
 
-- Get an API key from the FlutterFlow account page:
-  <https://app.flutterflow.io/account>.
-- `flutterflow ai` uses `FF_API_KEY`, or the credential store created by
-  `flutterflow ai init`.
-- `flutterflow export-code` and `flutterflow deploy-firebase` use
-  `FLUTTERFLOW_API_TOKEN`.
-- The credential store (`~/.flutterflow/credentials.json`) holds the key in
-  plaintext (file mode 0600 on POSIX). Never `cat`, copy, echo, or commit it.
-- A workspace created with `--api-key` also writes the key to a `.env` in that
-  workspace. Keep it out of version control — this repo's `.gitignore` covers
-  `.env`, `.env.*`, and `credentials.json`.
-- Do not commit tokens into this repo.
+The plugin's runtime surface is two POSIX shell scripts plus the skill and
+configs. CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs
+`shellcheck`, a POSIX syntax check, and JSON validation on every push.
 
-Codex should preflight auth before non-interactive FlutterFlow AI commands:
+> The validation and cachebuster helpers below ship with Codex under
+> `~/.codex/skills/.system/plugin-creator/` (installed by Codex's plugin-creator,
+> not by this repo) and require `python3`. Skip them if that skill isn't
+> installed.
 
 ```bash
-if [ -n "${FF_API_KEY:-}" ]; then
-  echo "ff_auth: env"
-elif [ -f "$HOME/.flutterflow/credentials.json" ]; then
-  echo "ff_auth: saved-store-present"
-else
-  echo "ff_auth: missing"
-fi
-```
+# validate the plugin manifest and structure
+python3 ~/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py plugins/flutterflow
 
-If auth is missing, grab a key from <https://app.flutterflow.io/account>. The
-most reliable path — especially in the Codex app, whose shell may not inherit a
-key you export elsewhere — is to **open a terminal** (macOS Terminal or your
-editor's integrated terminal) and run `flutterflow ai init <workspace>`
-interactively; the CLI prompts for the key and saves it to
-`~/.flutterflow/credentials.json`, which later commands reuse. Alternatively,
-export `FF_API_KEY` in your shell profile and relaunch Codex. Avoid the
-`--api-key` flag: it places the secret on the process
-argument list (visible via `ps`/`/proc` and shell history), and
-`flutterflow ai init --api-key` *persists* the key to disk
-(`~/.flutterflow/credentials.json` and the workspace `.env`) — it is not
-one-time. For a transient key on a read-only command, an inline environment
-variable (`FF_API_KEY=<key> flutterflow ai status <project-id>`) at least avoids
-persisting it to disk — but it is still recorded in shell history and readable
-from the process environment for the command's lifetime, so prefer the
-interactive `init` prompt. Do not print or commit the token.
-
-## Local Development
-
-> The validation helpers below ship with Codex under
-> `~/.codex/skills/.system/plugin-creator/` — they are installed by Codex's
-> plugin-creator, **not** by this repo, and require `python3`. If those paths do
-> not exist on your machine, that skill isn't installed. The
-> [CI workflow](.github/workflows/ci.yml) lints the scripts and configs without
-> them.
-
-Validate the plugin:
-
-```bash
-python3 ~/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py \
-  plugins/flutterflow
-```
-
-If you edit the plugin after installing it, bump the Codex cachebuster:
-
-```bash
-python3 ~/.codex/skills/.system/plugin-creator/scripts/update_plugin_cachebuster.py \
-  plugins/flutterflow
+# after editing, bump the cachebuster and reinstall
+python3 ~/.codex/skills/.system/plugin-creator/scripts/update_plugin_cachebuster.py plugins/flutterflow
 codex plugin add flutterflow@flutterflow
 ```
+
+## Support
+
+- FlutterFlow docs: <https://docs.flutterflow.io>
+- Bugs and feature requests:
+  [open an issue](https://github.com/FlutterFlow/flutterflow-codex/issues)
+
+## License
+
+Business Source License 1.1 (BUSL-1.1) — see [LICENSE](LICENSE). You may use it
+freely in connection with FlutterFlow products and services; it converts to
+Apache 2.0 on the change date. It may not be used to build a competing product.
+The license text is authoritative.
