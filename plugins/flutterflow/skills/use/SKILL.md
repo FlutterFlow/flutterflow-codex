@@ -213,6 +213,11 @@ create run may already have created the remote project but the local workspace i
 not bound yet. It matches an existing project by name, so using it as the default
 create path can bind to and overwrite the wrong same-named project.
 
+Once the project exists, **always report it back with a clickable link** so the
+user can open it in one click — format the FlutterFlow project URL as Markdown:
+`[<project-name>](https://app.flutterflow.io/project/<project-id>)`. Do this on
+every create and push, not only when asked.
+
 Do **not** hand-author a standalone Dart package or path-pin a `pubspec.yaml` to the
 cached SDK under `~/.flutterflow/packages/...`. `flutterflow ai init` scaffolds the
 workspace for you — including its `pubspec.yaml` (which depends on the per-workspace
@@ -352,3 +357,7 @@ Set `FLUTTERFLOW_API_TOKEN` or pass `--token` for export/deploy commands. Keep
 - `run` validates internally before pushing; reserve `validate` for offline/CI
   pre-flight, not the normal edit loop.
 - Report exact command failures with stderr/stdout summaries, but redact secrets.
+- Whenever you create, push to, or report on a project, give the user a
+  **clickable** link to open it — format the FlutterFlow project URL as Markdown:
+  `[<project-name>](https://app.flutterflow.io/project/<project-id>)`. Never
+  surface a bare project id without the link.
