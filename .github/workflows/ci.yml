@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: shellcheck the helper scripts
+        run: shellcheck plugins/flutterflow/scripts/*.sh
+
+      - name: POSIX sh syntax check
+        run: |
+          for f in plugins/flutterflow/scripts/*.sh; do
+            echo "sh -n $f"
+            sh -n "$f"
+          done
+
+      - name: Validate JSON configs
+        run: |
+          for f in $(git ls-files '*.json'); do
+            echo "json: $f"
+            python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$f"
+          done

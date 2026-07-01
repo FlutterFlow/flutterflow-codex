@@ -16,6 +16,8 @@ It ships one plugin, `flutterflow`, which provides:
 
 - Dart/Flutter available on PATH.
 - A FlutterFlow API token from <https://app.flutterflow.io/account>.
+- `python3` on PATH — only for the plugin-validation scripts in
+  [Local Development](#local-development) below (on Windows, use `py -3`).
 
 Install or update the CLI:
 
@@ -58,10 +60,12 @@ flutterflow ai validate <file.dart>
 flutterflow ai run <file.dart>
 ```
 
-If `flutterflow` is not globally installed, use the plugin helper:
+If `flutterflow` is not globally installed, use the plugin helper. What matters is
+the helper's own location, not your current directory, so run it from the repo
+root or give an absolute path:
 
 ```bash
-plugins/flutterflow/scripts/flutterflow-cli.sh ai --help
+/absolute/path/to/plugins/flutterflow/scripts/flutterflow-cli.sh ai --help
 ```
 
 ## Use MCP
@@ -88,7 +92,7 @@ Then start the launcher manually for a smoke test:
 
 ```bash
 FLUTTERFLOW_AI_WORKSPACE=/absolute/path/to/workspace \
-  plugins/flutterflow/scripts/flutterflow-mcp.sh
+  /absolute/path/to/plugins/flutterflow/scripts/flutterflow-mcp.sh
 ```
 
 To make MCP automatic later, create a workspace-specific plugin/config that
@@ -106,6 +110,9 @@ MCP for every thread where this plugin is enabled.
   `FLUTTERFLOW_API_TOKEN`.
 - The credential store (`~/.flutterflow/credentials.json`) holds the key in
   plaintext (file mode 0600 on POSIX). Never `cat`, copy, echo, or commit it.
+- A workspace created with `--api-key` also writes the key to a `.env` in that
+  workspace. Keep it out of version control — this repo's `.gitignore` covers
+  `.env`, `.env.*`, and `credentials.json`.
 - Do not commit tokens into this repo.
 
 Codex should preflight auth before non-interactive FlutterFlow AI commands:
@@ -131,12 +138,20 @@ export `FF_API_KEY` in your shell profile and relaunch Codex. Avoid the
 argument list (visible via `ps`/`/proc` and shell history), and
 `flutterflow ai init --api-key` *persists* the key to disk
 (`~/.flutterflow/credentials.json` and the workspace `.env`) — it is not
-one-time. For a genuinely transient key on a read-only command, use an inline
-environment variable instead:
-`FF_API_KEY=<key> flutterflow ai status <project-id>`. Do not print or commit
-the token.
+one-time. For a transient key on a read-only command, an inline environment
+variable (`FF_API_KEY=<key> flutterflow ai status <project-id>`) at least avoids
+persisting it to disk — but it is still recorded in shell history and readable
+from the process environment for the command's lifetime, so prefer the
+interactive `init` prompt. Do not print or commit the token.
 
 ## Local Development
+
+> The validation helpers below ship with Codex under
+> `~/.codex/skills/.system/plugin-creator/` — they are installed by Codex's
+> plugin-creator, **not** by this repo, and require `python3`. If those paths do
+> not exist on your machine, that skill isn't installed. The
+> [CI workflow](.github/workflows/ci.yml) lints the scripts and configs without
+> them.
 
 Validate the plugin:
 

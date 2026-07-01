@@ -151,9 +151,13 @@ Filling in the template:
 
 **Advanced alternatives** (only if the user prefers): export `FF_API_KEY` in their
 shell profile and relaunch Codex; or, for a single read-only command, prefix it inline
-as `FF_API_KEY=<key> flutterflow ai status <project-id>`. Avoid the `--api-key` flag —
-it puts the secret on the argument list and `init --api-key` persists it to disk, so it
-is not one-time.
+as `FF_API_KEY=<key> flutterflow ai status <project-id>` — but note this inline form is
+still recorded in shell history and visible in the process environment
+(`/proc/<pid>/environ`, `ps`) for the command's lifetime, so prefer the interactive
+`flutterflow ai init` prompt for a one-time key. Avoid the `--api-key` flag — it puts
+the secret on the argument list and `init --api-key` *persists* it to disk in **both**
+`~/.flutterflow/credentials.json` and the workspace `.env`, so it is not one-time.
+Ensure any workspace `.env` is gitignored and never committed.
 
 If a saved credential exists but the server rejects it, tell the user to refresh
 the key from FlutterFlow account settings and run `flutterflow ai logout` only if
@@ -194,14 +198,20 @@ flutterflow ai init <workspace-name-or-path>
 cd <workspace-name-or-path>
 ```
 
-Author the app as Dart DSL, then validate and apply. The first `run` creates the
-project; pass `--find-or-create` to reuse a same-named project rather than
-creating a duplicate:
+Author the app as Dart DSL, then apply it. `flutterflow ai run` validates
+internally and only pushes if validation passes, so iterate directly on `run` — a
+failing `run` is identical to a failing `validate` (same errors, no remote
+mutation, no half-pushed state). The first `run` on `dsl/create.dart` creates the
+project; pass `--project-name` and a `--commit-message`:
 
 ```bash
-flutterflow ai validate <file.dart>
-flutterflow ai run <file.dart> --find-or-create
+flutterflow ai run dsl/create.dart --project-name "<name>" --commit-message "<what the app does>"
 ```
+
+Add `--find-or-create` **only** as a retry/recovery option — when a previous
+create run may already have created the remote project but the local workspace is
+not bound yet. It matches an existing project by name, so using it as the default
+create path can bind to and overwrite the wrong same-named project.
 
 Do **not** hand-author a standalone Dart package or path-pin a `pubspec.yaml` to the
 cached SDK under `~/.flutterflow/packages/...`. `flutterflow ai init` scaffolds the
@@ -232,8 +242,9 @@ cd <workspace-name-or-path>
 3. Orient before changing anything (see Standard Agent Workflow below), then
    author, validate, and run DSL edits.
 
-Either way: always `validate` before `run`, and never `init` into a populated
-non-workspace directory.
+Either way: `run` validates internally before pushing, so iterate directly on
+`run` (reserve `validate` for offline/CI pre-flight — see below), and never `init`
+into a populated non-workspace directory.
 
 ## MCP Usage
 
@@ -289,12 +300,16 @@ flutterflow ai search <project-id> --query "<feature-or-screen>"
 flutterflow ai plan save --content "<short implementation plan>"
 ```
 
-5. Author changes as Dart DSL files, then validate before applying:
+5. Author changes as Dart DSL files, then apply them. `run` validates internally
+   and only pushes on success, so iterate directly on `run`:
 
 ```bash
-flutterflow ai validate <file.dart>
 flutterflow ai run <file.dart>
 ```
+
+   Use `flutterflow ai validate <file.dart>` only when you want validation output
+   *without* a push — CI pre-flight or an offline preview. It runs the same
+   pipeline as `run` minus the push, so it is not part of the normal edit loop.
 
 The implementation path is Dart DSL -> FFProject protobuf -> generated Flutter
 code. Avoid editing generated Flutter output when the requested change belongs
@@ -334,5 +349,6 @@ Set `FLUTTERFLOW_API_TOKEN` or pass `--token` for export/deploy commands. Keep
 
 - Inspect the current checkout and workspace before making edits.
 - Preserve user changes and avoid unrelated refactors.
-- Prefer `validate` before `run`.
+- `run` validates internally before pushing; reserve `validate` for offline/CI
+  pre-flight, not the normal edit loop.
 - Report exact command failures with stderr/stdout summaries, but redact secrets.

@@ -23,4 +23,6 @@ if [ ! -f "$workspace/.flutterflow/config.yaml" ]; then
   exit 1
 fi
 
-exec "$script_dir/flutterflow-cli.sh" ai mcp --workspace "$workspace"
+# Invoke via `sh` so a distribution that dropped the executable bit on the helper
+# still works (exec of a non-executable path fails with a bare "Permission denied").
+exec sh "$script_dir/flutterflow-cli.sh" ai mcp --workspace "$workspace"

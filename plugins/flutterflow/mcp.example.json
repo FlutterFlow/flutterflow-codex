@@ -1,9 +1,11 @@
 {
   "mcpServers": {
     "flutterflow": {
-      "command": "./scripts/flutterflow-mcp.sh",
+      "command": "/absolute/path/to/plugins/flutterflow/scripts/flutterflow-mcp.sh",
       "args": [],
-      "cwd": "."
+      "env": {
+        "FLUTTERFLOW_AI_WORKSPACE": "/absolute/path/to/flutterflow-ai-workspace"
+      }
     }
   }
 }

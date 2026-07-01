@@ -1,6 +1,6 @@
 {
   "name": "flutterflow",
-  "version": "0.1.0+codex.20260630165155",
+  "version": "0.1.0+codex.20260701161527",
   "description": "Use the FlutterFlow CLI from Codex, with optional workspace-bound MCP setup.",
   "author": {
     "name": "FlutterFlow",
@@ -8,7 +8,8 @@
     "url": "https://flutterflow.io"
   },
   "homepage": "https://docs.flutterflow.io",
-  "license": "BSL-1.1",
+  "repository": "https://github.com/FlutterFlow/flutterflow-codex",
+  "license": "BUSL-1.1",
   "keywords": [
     "flutterflow",
     "mcp",

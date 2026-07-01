@@ -16,7 +16,12 @@ run_source_cli() {
   command -v dart >/dev/null 2>&1 || return 1
 
   package_config="$cli_dir/.dart_tool/package_config.json"
+  # Track whether the package config already existed. A 254 exit is only treated
+  # as a stale-config problem worth retrying when the config pre-existed; if we
+  # just resolved it below, a 254 is an application error and must not be re-run.
+  pkg_config_preexisting=1
   if [ ! -f "$package_config" ]; then
+    pkg_config_preexisting=0
     echo "Resolving FlutterFlow CLI dependencies in $cli_dir..." >&2
     if ! (cd "$cli_dir" && dart pub get >/dev/null); then
       echo "Failed to run dart pub get in $cli_dir." >&2
@@ -30,11 +35,13 @@ run_source_cli() {
     status=$?
   fi
 
-  # Exit 254 = dart couldn't resolve packages, typically a stale package config
-  # after a pubspec or branch change. Re-resolve and retry once. Any other
-  # nonzero status is a genuine CLI error and is propagated unchanged (so a
-  # command like `validate` that reports errors is never run twice).
-  if [ "$status" -eq 254 ]; then
+  # Exit 254 is Dart's general error code: it can mean the CLI couldn't resolve
+  # packages (a stale package config after a pubspec or branch change) OR that the
+  # `flutterflow ai` command itself threw (network/API/app error). Only re-resolve
+  # and retry when the package config pre-existed — i.e. it may be stale. If we
+  # freshly resolved it above, or the status is anything else, propagate unchanged
+  # so a command (including a state-mutating one) is never silently run twice.
+  if [ "$status" -eq 254 ] && [ "$pkg_config_preexisting" -eq 1 ]; then
     echo "Re-resolving FlutterFlow CLI dependencies in $cli_dir (stale package config)..." >&2
     if (cd "$cli_dir" && dart pub get >/dev/null); then
       exec dart --packages="$package_config" "$cli_dir/bin/flutterflow_cli.dart" "$@"
@@ -50,10 +57,13 @@ if [ -n "${FLUTTERFLOW_CLI_DIR:-}" ]; then
     echo "FLUTTERFLOW_CLI_DIR is set but does not point at a packages/flutterflow_cli checkout: $FLUTTERFLOW_CLI_DIR" >&2
     exit 127
   fi
-  run_source_cli "$FLUTTERFLOW_CLI_DIR" "$@"
-  # run_source_cli only returns here if the source checkout couldn't be used;
-  # fall through to the installed binary.
-  attempted_source="$FLUTTERFLOW_CLI_DIR"
+  # run_source_cli exits directly on success (or on a genuine CLI error); it only
+  # RETURNS (always nonzero) when the source checkout can't be used. Guard the call
+  # so `set -e` does not abort the script on that intended fall-through path —
+  # otherwise the installed-binary fallback and the diagnostics below are unreachable.
+  if ! run_source_cli "$FLUTTERFLOW_CLI_DIR" "$@"; then
+    attempted_source="$FLUTTERFLOW_CLI_DIR"
+  fi
 fi
 
 # 2. Installed global binary (the default for most users).
