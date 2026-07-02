@@ -20,6 +20,9 @@ jobs:
             sh -n "$f"
           done
 
+      - name: Run clipboard hand-off tests
+        run: bash plugins/flutterflow/scripts/store-key-from-clipboard.test.sh
+
       - name: Validate JSON configs
         run: |
           for f in $(git ls-files '*.json'); do

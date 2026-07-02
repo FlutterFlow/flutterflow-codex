@@ -68,16 +68,61 @@ cannot run `flutterflow ai docs`.
 - `flutterflow ai` uses `FF_API_KEY`, or the CLI credential store written by
   `flutterflow ai init`.
 - `export-code` and `deploy-firebase` use `FLUTTERFLOW_API_TOKEN`.
+- This plugin can store a copied FlutterFlow API key without the key entering
+  model context. The bundled script writes `~/.config/flutterflow/codex-env.sh`
+  with mode `0600`; source it only inside the same shell invocation as commands
+  that need auth.
 - The credential store (`~/.flutterflow/credentials.json`) holds the key in
   plaintext (mode 0600 on POSIX). Never `cat`, copy, echo, or commit it; the
   preflight below only tests for its presence.
 - Never print tokens, write them into repo files, or include them in final answers.
 - Get an API key from the FlutterFlow account page:
   <https://app.flutterflow.io/account>.
-- If credentials are missing, point the user to that page and have them set the
-  key up out-of-band (see Auth Preflight) — e.g. by opening a terminal and
-  running `flutterflow ai init` interactively. Never accept a key pasted into the
-  chat.
+- If credentials are missing, point the user to that page and use the secure
+  clipboard hand-off below. Never accept a key pasted into the chat.
+
+### Secure Clipboard Hand-Off
+
+When auth is missing and a FlutterFlow API key is needed, use this wording:
+
+1) Open <https://app.flutterflow.io/account> and copy your API key.
+2) Come back and just say **copied** — do NOT paste the key into this chat. I'll
+read your clipboard once, without displaying it, then clear it.
+
+When the user says `copied`, run the bundled script immediately as a standalone
+command, with no intervening tool calls:
+
+```bash
+/absolute/path/to/plugins/flutterflow/scripts/store-key-from-clipboard.sh
+```
+
+Use the exact installed plugin path. Do not compose an inline clipboard command.
+If the script prints `key: STORED (clipboard cleared)`, continue. If it prints
+`key: INVALID`, use this fixed retry line:
+
+> That didn't look like an API key — something may have overwritten your clipboard.
+> Copy the key again (make it the last thing you copy) and say copied.
+
+If it prints `clipboard: UNAVAILABLE` because the session is SSH/headless/no local
+clipboard tool, fall back to this own-terminal hidden prompt. The user runs it in
+their own terminal; they still must not paste the key into chat:
+
+```bash
+bash -lc 'set -euo pipefail; umask 077; dir="$HOME/.config/flutterflow"; file="$dir/codex-env.sh"; mkdir -p "$dir"; chmod 700 "$dir"; read -rsp "FlutterFlow API key: " key; printf "\n"; [[ "$key" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] || { echo "key: INVALID"; exit 1; }; tmp="$(mktemp "$dir/.manual.XXXXXX")"; { printf "# flutterflow-codex: user-provided key (manual hand-off)\n"; printf "export FF_API_KEY=%q\n" "$key"; printf "export FLUTTERFLOW_API_TOKEN=%q\n" "$key"; } > "$tmp"; chmod 600 "$tmp"; mv -f "$tmp" "$file"; echo "key: STORED"'
+```
+
+Hard rules:
+
+- Never run bare `pbpaste`, `wl-paste`, `xclip`, `xsel`, `Get-Clipboard`, or any
+  composed clipboard pipeline. Their stdout enters model context.
+- Never `cat`, grep, print, or otherwise inspect the stored config file. The only
+  permitted access is sourcing `~/.config/flutterflow/codex-env.sh` immediately
+  before commands that need the key. Debug with `ls -l` or `[ -n "$FF_API_KEY" ]`.
+- Never request the key via chat or AskUserQuestion.
+- If a key-shaped string appears in chat anyway, treat it as compromised. Do not
+  store it; tell the user to rotate it.
+- Only the exact `store-key-from-clipboard.sh` path may be allowlisted. Never
+  allowlist bare clipboard binaries.
 
 ## Auth Preflight
 
@@ -85,6 +130,10 @@ Before non-interactive FlutterFlow AI commands that may need auth, check for an
 environment key or a saved CLI credential store without exposing secret values:
 
 ```bash
+if [ -f "$HOME/.config/flutterflow/codex-env.sh" ]; then
+  . "$HOME/.config/flutterflow/codex-env.sh"
+fi
+
 if [ -n "${FF_API_KEY:-}" ]; then
   echo "ff_auth: env"
 elif [ -f "$HOME/.flutterflow/credentials.json" ]; then
@@ -94,9 +143,11 @@ else
 fi
 ```
 
-If the preflight prints `ff_auth: missing`, do not keep retrying failing commands
-and do not paste a key into the chat. **Stop and walk the user through setup** — see
-**When auth is missing — stop and hand off** below.
+Run that source step in the same shell invocation as FlutterFlow commands that
+need auth; do not inspect or print the file. If the preflight prints
+`ff_auth: missing`, do not keep retrying failing commands and do not paste a key
+into the chat. **Stop and walk the user through setup** — see **When auth is
+missing — stop and hand off** below.
 
 ### When auth is missing — stop and hand off
 
@@ -106,56 +157,33 @@ Do **not** author DSL, scaffold packages, or do build work you cannot `validate`
 — that work is throwaway until a workspace and auth exist.
 
 Instead, **stop and give the user one simple, self-contained setup message, then
-wait.** Assume they may know nothing about terminals or code: use plain numbered
-steps, **fill in their real folder path and app name** (never leave `<placeholders>`),
-show the terminal-launch step for their operating system (you can tell which from the
-environment — show only that one; include both only if unsure), and tell them to
-copy-paste one line at a time. Resume only after they confirm it's ready.
+wait.** Assume they may know nothing about terminals or code: use the clipboard
+hand-off wording above and tell them to come back with only `copied`. Resume only
+after they do.
 
-Use this template, substituting real values:
+Use this template:
 
 > I can build this — FlutterFlow just needs to sign in first. It takes about a
 > minute. Here's exactly what to do:
 >
-> **1. Get your API key.** Open the FlutterFlow account page —
-> https://app.flutterflow.io/account — and copy your API key. Keep that tab open.
+> **1. Open the FlutterFlow account page** —
+> https://app.flutterflow.io/account — and copy your API key.
 >
-> **2. Open a terminal** (a window where you type commands):
-> - **On a Mac:** press **Cmd + Space**, type **Terminal**, and press **Enter**.
-> - **On Windows:** click **Start** (or press the **Windows key**), type
->   **PowerShell**, and press **Enter**.
->
-> **3. Copy and paste these lines one at a time, pressing Enter after each:**
->
-> ```bash
-> cd "<parent-folder>"
-> flutterflow ai init <app-name>
-> ```
->
-> **4. When it asks for your API key, paste it and press Enter.** The key won't
-> show on screen as you paste — that's normal (it's hidden for security). If it
-> asks anything else, just press Enter to accept the defaults.
->
-> **5. Come back here and type "ready".** I'll build your app, check it, and apply
-> it for you.
+> **2. Come back here and type only `copied`.** Do **not** paste the key into this
+> chat. I'll read your clipboard once, without displaying it, then clear it.
 
-Filling in the template:
-- `<parent-folder>` = the folder the app should live in (use the user's current
-  directory or `~/Documents`); `<app-name>` = the new workspace folder, e.g.
-  `habit_tracker`. For a Windows user, write a Windows path instead, e.g.
-  `cd "$HOME\Documents"`.
-- Running `flutterflow ai init` this way both signs in (saving the key to
-  `~/.flutterflow/credentials.json`) **and** creates the workspace, so once the user
-  says "ready" you can `cd` into `<parent-folder>/<app-name>` and start building.
-- Never accept a key pasted into the chat; never echo, store, or print it.
+After the key is stored:
+
+- After `key: STORED (clipboard cleared)`, source
+  `~/.config/flutterflow/codex-env.sh` in the same shell invocation as
+  `flutterflow ai init <workspace-name-or-path>` or later FlutterFlow commands.
+- Never accept a key pasted into the chat; never echo, inspect, store in repo
+  files, or print it.
 
 **Advanced alternatives** (only if the user prefers): export `FF_API_KEY` in their
-shell profile and relaunch Codex; or, for a single read-only command, prefix it inline
-as `FF_API_KEY=<key> flutterflow ai status <project-id>` — but note this inline form is
-still recorded in shell history and visible in the process environment
-(`/proc/<pid>/environ`, `ps`) for the command's lifetime, so prefer the interactive
-`flutterflow ai init` prompt for a one-time key. Avoid the `--api-key` flag — it puts
-the secret on the argument list and `init --api-key` *persists* it to disk in **both**
+shell profile and relaunch Codex, or use the own-terminal hidden prompt above when
+the clipboard is unavailable. Avoid the `--api-key` flag — it puts the secret on
+the argument list and `init --api-key` *persists* it to disk in **both**
 `~/.flutterflow/credentials.json` and the workspace `.env`, so it is not one-time.
 Ensure any workspace `.env` is gitignored and never committed.
 
@@ -286,6 +314,9 @@ FLUTTERFLOW_AI_WORKSPACE=/absolute/path/to/workspace \
 2. Identify the workspace:
 
 ```bash
+if [ -f "$HOME/.config/flutterflow/codex-env.sh" ]; then
+  . "$HOME/.config/flutterflow/codex-env.sh"
+fi
 pwd
 test -f .flutterflow/config.yaml && flutterflow ai upgrade --check
 ```

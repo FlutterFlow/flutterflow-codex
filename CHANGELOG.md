@@ -38,7 +38,13 @@ The base version follows [semantic versioning](https://semver.org). The
 
 ### Added
 
-- `.github/workflows/ci.yml`: shellcheck, POSIX syntax check, and JSON validation.
+- `store-key-from-clipboard.sh`: secure one-shot FlutterFlow API-key hand-off
+  from the OS clipboard to `~/.config/flutterflow/codex-env.sh`, with validation,
+  symlink protections, live clipboard clearing, and leak-freedom tests.
+- `SKILL.md` and `README.md`: documented the no-chat clipboard flow, fixed retry
+  wording, unavailable fallback, and hard rules against bare clipboard reads.
+- `.github/workflows/ci.yml`: shellcheck, POSIX syntax check, clipboard hand-off
+  tests, and JSON validation.
 - `.gitignore` entries for `.env`, `.env.*`, and `credentials.json`.
 - This changelog.
 

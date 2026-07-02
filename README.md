@@ -10,7 +10,8 @@ This repo ships one plugin, `flutterflow`, which adds:
 - A **skill** that teaches Codex the FlutterFlow AI workflow — workspace setup,
   inspection, validating and running Dart DSL edits, diagnostics, and code export.
 - **Helper scripts** that resolve a globally installed `flutterflow` CLI (or a
-  local `flutterflow_cli` source checkout).
+  local `flutterflow_cli` source checkout), plus a secure clipboard hand-off
+  script for FlutterFlow API keys.
 - An **optional MCP example** for workspace-bound setups. MCP is not registered
   or started by default.
 
@@ -76,10 +77,26 @@ give an absolute path:
 - `flutterflow ai` uses `FF_API_KEY` or the credential store created by
   `flutterflow ai init`. `export-code` and `deploy-firebase` use
   `FLUTTERFLOW_API_TOKEN`.
-- **Recommended:** run `flutterflow ai init` once in a terminal — it prompts for
-  your key and saves it to `~/.flutterflow/credentials.json` (mode `0600`) for
-  later commands. In the Codex app especially, this is more reliable than relying
-  on an exported env var the app's shell may not inherit.
+- **Recommended in Codex:** use the bundled secure clipboard hand-off. Open
+  [your FlutterFlow account](https://app.flutterflow.io/account), copy the API
+  key, return to Codex, and say `copied`. The agent runs only
+  `plugins/flutterflow/scripts/store-key-from-clipboard.sh`, which reads the
+  clipboard once, validates the UUID format, writes
+  `~/.config/flutterflow/codex-env.sh` with mode `0600`, and clears the live
+  clipboard without displaying the key.
+- To use the stored key in a shell command, source the env file in that same shell
+  invocation. Do not print, inspect, or commit the file:
+
+```bash
+if [ -f "$HOME/.config/flutterflow/codex-env.sh" ]; then
+  . "$HOME/.config/flutterflow/codex-env.sh"
+fi
+flutterflow ai status <project-id>
+```
+
+- You can also run `flutterflow ai init` once in a terminal — it prompts for your
+  key and saves it to `~/.flutterflow/credentials.json` (mode `0600`) for later
+  commands.
 - Avoid the `--api-key` flag: it puts the secret on the process argument list and
   persists it to disk (both the credential store and the workspace `.env`).
 - Never commit tokens. This repo's `.gitignore` covers `.env`, `.env.*`, and
@@ -103,9 +120,9 @@ for every thread where this plugin is enabled.
 
 ## Development
 
-The plugin's runtime surface is two POSIX shell scripts plus the skill and
-configs. CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs
-`shellcheck`, a POSIX syntax check, and JSON validation on every push.
+The plugin's runtime surface is shell scripts plus the skill and configs. CI
+([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs `shellcheck`, syntax
+checks, clipboard hand-off tests, and JSON validation on every push.
 
 > The validation and cachebuster helpers below ship with Codex under
 > `~/.codex/skills/.system/plugin-creator/` (installed by Codex's plugin-creator,
