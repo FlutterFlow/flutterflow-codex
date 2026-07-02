@@ -32,6 +32,8 @@ The base version follows [semantic versioning](https://semver.org). The
   `FLUTTERFLOW_AI_WORKSPACE` instead of a relative command/cwd that resolved
   against the host's working directory.
 - `plugin.json`: corrected the license identifier to the SPDX id `BUSL-1.1`.
+- `README.md`: documented GitHub marketplace installation as the primary path,
+  with local `marketplace add .` reserved for repo-root development installs.
 - `README.md`: documented the `python3` requirement, clarified that the validation
   scripts are Codex-provided, and used absolute helper paths that work from any
   directory.

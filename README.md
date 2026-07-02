@@ -30,15 +30,31 @@ dart pub global activate flutterflow_cli
 
 ## Install
 
-From a clone of this repo:
+Install from GitHub:
 
 ```bash
+codex plugin marketplace add FlutterFlow/flutterflow-codex --ref main
+codex plugin add flutterflow@flutterflow
+```
+
+You can also pass the full HTTPS URL:
+
+```bash
+codex plugin marketplace add https://github.com/FlutterFlow/flutterflow-codex --ref main
+codex plugin add flutterflow@flutterflow
+```
+
+For local development or testing unpushed changes, run the local marketplace
+command from the repo root:
+
+```bash
+cd /path/to/flutterflow-codex
 codex plugin marketplace add .
 codex plugin add flutterflow@flutterflow
 ```
 
 Start a new Codex thread so the skill loads. (A public Plugin Directory listing
-is coming soon; until then, install from this repo.)
+is coming soon; until then, install from GitHub or a local clone.)
 
 ## Use it
 
