@@ -1,6 +1,6 @@
 ---
 name: use
-description: Use when working with FlutterFlow AI workspaces or the FlutterFlow CLI from Codex. Covers workspace init, auth, inspect/search/status/resources, Dart DSL validate/run, context refresh, diagnostics, export-code, and optional workspace-bound MCP setup.
+description: Use when working with FlutterFlow AI workspaces or the FlutterFlow CLI from Codex. Covers onboarding, auth, version-matched workspace guidance, typed project context, branch-safe editing, validation, push, diagnostics, export-code, and workspace-bound MCP.
 ---
 
 # FlutterFlow CLI
@@ -10,19 +10,19 @@ FlutterFlow CLI, or FlutterFlow project edits.
 
 ## Preconditions — read before running anything
 
-This plugin is **CLI-first**: every capability works by running `flutterflow ai …`
-in a shell. A working shell and the `flutterflow` CLI are a hard requirement. This
-plugin has **no** GUI/desktop/browser path and registers **no** MCP server by
-default.
+This plugin uses the FlutterFlow CLI to initialize, authenticate, upgrade, and
+repair workspaces, so a working shell and `flutterflow` command are hard
+requirements. An initialized workspace can also auto-register its project-scoped
+MCP server and pair with FlutterFlow Desktop. Follow the workspace's generated
+`AGENTS.md` once it exists; it is version-matched to that workspace's SDK.
 
 If the shell, command runner, or file-read tooling is unavailable — e.g. a command
 fails to launch with `Failed to create unified exec process: No such file or
-directory` (which usually means the thread's working directory no longer exists, not
+directory` (which usually means the task's working directory no longer exists, not
 a permission denial) — **STOP**. Tell the user the plugin needs a working shell and
-ask them to reopen the thread in a folder that exists (verify with `pwd`), then end
-the turn. Do **not** retry alternate shells, enumerate MCP resources, read the
-terminal, open desktop apps (e.g. FlutterFlow Campus), or drive a web browser — none
-of those can perform FlutterFlow operations.
+ask them to reopen the task in a folder that exists (verify with `pwd`), then end
+the turn. Do **not** retry unrelated shells, apps, or browsers as a substitute for
+the missing bootstrap path.
 
 ## Command Resolution
 
@@ -51,30 +51,47 @@ plugin root first) before calling it:
 The helper preserves the caller's working directory. It runs a globally
 installed `flutterflow` if present; to run from a local `flutterflow_cli` source
 checkout instead, point it there with
-`FLUTTERFLOW_CLI_DIR=/path/to/packages/flutterflow_cli`.
+`FLUTTERFLOW_CLI_DIR=/path/to/packages/flutterflow_cli`. It invokes the CLI
+exactly once and defaults `FF_AI_AGENT_CLIENT` to `codex` while preserving an
+explicit caller override.
+
+For direct commands that do not use the helper, set the same attribution once:
+
+```bash
+export FF_AI_AGENT_CLIENT="${FF_AI_AGENT_CLIENT:-codex}"
+```
 
 ### Docs and reference specs
 
-`flutterflow ai docs [topic]` only works **inside an initialized workspace** — before
-`init` it fails with "No FlutterFlow AI workspace found … Run `flutterflow ai init`
-first." Do **not** grep `.pub-cache` for the DSL API. The canonical specs are cached
-on disk at `~/.flutterflow/packages/<env>/<hash>/` (the `<hash>` varies per SDK build
-— pick the most recent). Useful read-only references there: `specs/dsl/*.dart` (worked
-example flows), `doc/design_quality.md`, and `lib/src/docs/`. Read those when you
-cannot run `flutterflow ai docs`.
+After initialization, read the workspace's `AGENTS.md` completely before making
+changes, plus any more specific nested `AGENTS.md` that applies. Use
+`flutterflow ai docs [topic]` for version-matched detail. These generated sources
+are authoritative for the current workspace's SDK surface and edit lanes. The
+bootstrap, secret-handling, exact-once execution, and remote-side-effect safety
+boundaries in this plugin still apply if older generated prose overstates a
+guarantee.
+
+Before initialization, `flutterflow ai docs` is unavailable. Do not grep a global
+`.pub-cache` for DSL APIs or path-pin a project to cached packages; initialize the
+workspace first so its vendored SDK and guidance are internally consistent.
 
 ## Authentication
 
-- `flutterflow ai` uses `FF_API_KEY`, or the CLI credential store written by
-  `flutterflow ai init`.
+- Onboarding (`flutterflow ai` or `flutterflow ai init`) can use an exported
+  `FF_API_KEY`, the plugin's sourced config, or the per-machine credential store
+  at `~/.flutterflow/credentials.json`.
+- Ordinary commands inside an initialized workspace use the process environment,
+  workspace `.env`, and `.flutterflow/.env`. The latter is the generated private
+  store; the per-machine credential store is not a substitute for workspace auth
+  after initialization.
 - `export-code` and `deploy-firebase` use `FLUTTERFLOW_API_TOKEN`.
 - This plugin can store a copied FlutterFlow API key without the key entering
   model context. The bundled script writes `~/.config/flutterflow/codex-env.sh`
   with mode `0600`; source it only inside the same shell invocation as commands
   that need auth.
-- The credential store (`~/.flutterflow/credentials.json`) holds the key in
-  plaintext (mode 0600 on POSIX). Never `cat`, copy, echo, or commit it; the
-  preflight below only tests for its presence.
+- Both `~/.flutterflow/credentials.json` and `.flutterflow/.env` hold secrets in
+  plaintext. Never `cat`, copy, echo, grep, or commit either file; the preflight
+  below only tests for presence.
 - Never print tokens, write them into repo files, or include them in final answers.
 - Get an API key from the FlutterFlow account page:
   <https://app.flutterflow.io/account>.
@@ -126,35 +143,48 @@ Hard rules:
 
 ## Auth Preflight
 
-Before non-interactive FlutterFlow AI commands that may need auth, check for an
-environment key or a saved CLI credential store without exposing secret values:
+Before non-interactive FlutterFlow AI commands that may need auth, identify the
+applicable credential source without exposing secret values:
 
 ```bash
 if [ -f "$HOME/.config/flutterflow/codex-env.sh" ]; then
   . "$HOME/.config/flutterflow/codex-env.sh"
 fi
 
+workspace_root="$PWD"
+while [ "$workspace_root" != "/" ] && [ ! -f "$workspace_root/.flutterflow/config.yaml" ]; do
+  workspace_root="$(dirname "$workspace_root")"
+done
+if [ ! -f "$workspace_root/.flutterflow/config.yaml" ]; then
+  workspace_root=""
+fi
+
 if [ -n "${FF_API_KEY:-}" ]; then
   echo "ff_auth: env"
+elif [ -n "$workspace_root" ] && [ -f "$workspace_root/.flutterflow/.env" ]; then
+  echo "ff_auth: workspace-store-present"
+elif [ -n "$workspace_root" ] && [ -f "$workspace_root/.env" ]; then
+  echo "ff_auth: workspace-env-file-present"
 elif [ -f "$HOME/.flutterflow/credentials.json" ]; then
-  echo "ff_auth: saved-store-present"
+  echo "ff_auth: init-store-present"
 else
   echo "ff_auth: missing"
 fi
 ```
 
 Run that source step in the same shell invocation as FlutterFlow commands that
-need auth; do not inspect or print the file. If the preflight prints
-`ff_auth: missing`, do not keep retrying failing commands and do not paste a key
-into the chat. **Stop and walk the user through setup** — see **When auth is
-missing — stop and hand off** below.
+need auth; do not inspect or print any secret file. Presence does not prove a key
+is valid—the CLI remains authoritative. `init-store-present` is sufficient for
+the router's onboarding/init flow, but ordinary workspace commands require
+`env`, `workspace-store-present`, or an intentionally configured
+`workspace-env-file-present`. If the required source is missing, do not keep
+retrying or paste a key into chat. Stop and follow the hand-off below.
 
 ### When auth is missing — stop and hand off
 
-When the preflight prints `ff_auth: missing` and the task needs to create, run, or
-push (anything beyond read-only/orienting), treat it as a **hard stop, not a detour**.
-Do **not** author DSL, scaffold packages, or do build work you cannot `validate`/`run`
-— that work is throwaway until a workspace and auth exist.
+When the required auth source is missing and the task needs to initialize,
+create, run, or push, treat it as a hard stop. Do not author DSL or do build work
+that cannot be verified against a real workspace.
 
 Instead, **stop and give the user one simple, self-contained setup message, then
 wait.** Assume they may know nothing about terminals or code: use the clipboard
@@ -184,8 +214,8 @@ After the key is stored:
 shell profile and relaunch Codex, or use the own-terminal hidden prompt above when
 the clipboard is unavailable. Avoid the `--api-key` flag — it puts the secret on
 the argument list and `init --api-key` *persists* it to disk in **both**
-`~/.flutterflow/credentials.json` and the workspace `.env`, so it is not one-time.
-Ensure any workspace `.env` is gitignored and never committed.
+`~/.flutterflow/credentials.json` and `.flutterflow/.env`, so it is not one-time.
+Ensure workspace env files are gitignored and never committed.
 
 If a saved credential exists but the server rejects it, tell the user to refresh
 the key from FlutterFlow account settings and run `flutterflow ai logout` only if
@@ -195,26 +225,33 @@ they want to inspect or clear saved base URLs.
 
 - FlutterFlow AI commands run inside an initialized workspace containing
   `.flutterflow/config.yaml`.
-- If no workspace exists and the user wants to create or edit an app, run:
+- For human onboarding in an interactive terminal, bare `flutterflow ai` launches
+  the searchable project picker and includes a create-new option.
+- For deterministic agent automation, initialize a new workspace with:
 
 ```bash
-flutterflow ai init <workspace-name-or-path>
+flutterflow ai init <workspace-name-or-path> --yes
 ```
 
-- To bind to an existing project, use:
+- Bind directly to a known project with:
 
 ```bash
-flutterflow ai init <workspace-name-or-path> --project <project-id>
+flutterflow ai init <workspace-name-or-path> --project <project-id> --yes
 ```
 
 - Do not run `flutterflow ai init` into a populated non-workspace directory.
-- If a workspace already exists, `cd` into it and run `flutterflow ai refresh-workspace`
-  or `flutterflow ai upgrade --check` instead of reinitializing.
+- After init, `cd` to the workspace root and read `AGENTS.md` completely.
+- If a workspace already exists, do not reinitialize it. Run
+  `flutterflow ai upgrade --check`, then follow its `AGENTS.md`.
+- `flutterflow ai refresh-workspace` is not routine context refresh. It overwrites
+  the managed `CLAUDE.md`, `AGENTS.md`, `README.md`, `references/`, and
+  `patterns/` after confirmation and backs them up under
+  `.flutterflow/backups/refresh-workspace/<timestamp>/`. Use it deliberately,
+  review the targets, and inspect the resulting changes.
 
 ## Create A New App vs Edit An Existing Project
 
-Decide which path the user wants before running anything. The two starter
-prompts map directly to these flows.
+Decide which path the user wants before running anything.
 
 ### Create a new app
 
@@ -222,15 +259,13 @@ Use this when there is no FlutterFlow project yet. Omit `--project` so the CLI
 uses the create-new flow, then `cd` into the scaffold:
 
 ```bash
-flutterflow ai init <workspace-name-or-path>
+flutterflow ai init <workspace-name-or-path> --yes
 cd <workspace-name-or-path>
 ```
 
-Author the app as Dart DSL, then apply it. `flutterflow ai run` validates
-internally and only pushes if validation passes, so iterate directly on `run` — a
-failing `run` is identical to a failing `validate` (same errors, no remote
-mutation, no half-pushed state). The first `run` on `dsl/create.dart` creates the
-project; pass `--project-name` and a `--commit-message`:
+Read `AGENTS.md`, author the app using its current SDK workflow, run
+`flutterflow ai test`, then apply it. The first `run` on `dsl/create.dart`
+creates the project; pass `--project-name` and `--commit-message`:
 
 ```bash
 flutterflow ai run dsl/create.dart --project-name "<name>" --commit-message "<what the app does>"
@@ -241,62 +276,67 @@ create run may already have created the remote project but the local workspace i
 not bound yet. It matches an existing project by name, so using it as the default
 create path can bind to and overwrite the wrong same-named project.
 
+`run` performs a validation gate before remote creation or push, so a
+validation-phase failure has no remote mutation. Do not generalize that guarantee
+to every failure: create, conflict, network, push, and post-push failures occur
+later and can have remote side effects. A failed create can leave an unbound
+remote project; recover with `--find-or-create` only when that is the project you
+intend to reuse.
+
 Once the project exists, **always report it back with a clickable link** so the
 user can open it in one click — format the FlutterFlow project URL as Markdown:
 `[<project-name>](https://app.flutterflow.io/project/<project-id>)`. Do this on
 every create and push, not only when asked.
 
-Do **not** hand-author a standalone Dart package or path-pin a `pubspec.yaml` to the
-cached SDK under `~/.flutterflow/packages/...`. `flutterflow ai init` scaffolds the
-workspace for you — including its `pubspec.yaml` (which depends on the per-workspace
-vendored SDK at `./.flutterflow/sdk/flutterflow_ai`) and starter `dsl/create.dart` +
-`dsl/edit.dart`. Author your DSL as a file **inside** that workspace; `validate`/`run`
-expect that layout, and a package pinned to the global cache is not portable (the cache
-is GC'd/overwritten on the next `init`/`upgrade`). Also note `create.dart` is
-**one-shot**: re-running it against an existing project fails with duplicate-name
-errors — after the first successful `run`, make further changes via `dsl/edit.dart`.
+Do not hand-author a standalone Dart package or path-pin `pubspec.yaml` to a
+global cache. `init` scaffolds the versioned workspace and vendored SDK. Also
+note `create.dart` is one-shot; after the first successful run, make further
+changes through the edit workflow described by `AGENTS.md`.
 
 ### Edit an existing project
 
 Use this when the user already has a FlutterFlow project.
 
-1. You need the project id — it is in the project URL
-   (`app.flutterflow.io/project/<project-id>`). If the user has not provided it,
-   ask for it; there is no CLI command that lists the projects in an account.
+1. For deterministic agent setup, get the project id from the FlutterFlow URL
+   (`app.flutterflow.io/project/<project-id>`). There is no separate
+   non-interactive project-list command. If the user does not know the id, offer
+   the interactive bare `flutterflow ai` picker rather than claiming projects
+   cannot be listed.
 2. Bind a workspace to that project, then `cd` in:
 
 ```bash
-flutterflow ai init <workspace-name-or-path> --project <project-id>
+flutterflow ai init <workspace-name-or-path> --project <project-id> --yes
 cd <workspace-name-or-path>
 ```
 
-   If a workspace for this project already exists, `cd` into it and run
-   `flutterflow ai refresh-workspace` instead of re-initializing.
-3. Orient before changing anything (see Standard Agent Workflow below), then
-   author, validate, and run DSL edits.
+   If a workspace for this project already exists, `cd` into it; do not
+   reinitialize or routinely refresh managed guidance.
+3. Read `AGENTS.md`, orient, test, and apply edits using the standard workflow.
 
-Either way: `run` validates internally before pushing, so iterate directly on
-`run` (reserve `validate` for offline/CI pre-flight — see below), and never `init`
-into a populated non-workspace directory.
+Never `init` into a populated non-workspace directory.
 
 ## MCP Usage
 
-This plugin is CLI-first and does not register an MCP server by default. Do not
-assume FlutterFlow MCP tools are available in a thread.
+The plugin itself does not globally register an MCP server because each server
+is bound to one workspace. Current `init` and deliberate `refresh-workspace`
+flows auto-register the vendored project server with supported agents, including
+project-scoped Codex configuration at `.codex/config.toml`. A newly written
+Codex config may require a new task opened from the workspace before its MCP
+tools appear.
 
-Use CLI commands unless the user explicitly configures a workspace-bound MCP
-server. The example config is `mcp.example.json`; it is intentionally not named
-`.mcp.json` so Codex does not auto-start it.
+If FlutterFlow MCP tools are already available, verify they point at the intended
+workspace and use them as directed by that workspace's `AGENTS.md`—including any
+fast-patch lane. Otherwise continue through the CLI; do not block on MCP.
+
+The manual `mcp.example.json` launches the vendored server directly. Do not route
+stdio MCP through `flutterflow ai mcp` or a pub/global shim: dependency status
+text on stdout can corrupt JSON-RPC framing.
 
 The optional server launcher resolves the workspace from:
 
 1. `FLUTTERFLOW_AI_WORKSPACE`
 2. `CODEX_WORKSPACE_ROOT`
 3. the process working directory
-
-If MCP tools are available in the current Codex thread, verify they are connected
-to the intended workspace before using them. If the MCP server is unavailable,
-fails to start, or points at the wrong workspace, use the CLI commands below.
 
 To start the MCP server manually:
 
@@ -307,21 +347,41 @@ FLUTTERFLOW_AI_WORKSPACE=/absolute/path/to/workspace \
 
 ## Standard Agent Workflow
 
-1. Run the auth preflight above. If it reports `ff_auth: missing` and the task needs
-   to create/run/push, stop and follow "When auth is missing — stop and hand off"
-   before doing steps 2+.
+1. Run the auth preflight above. If the applicable source is missing and the
+   task needs init/create/run/push, stop and follow the secure hand-off.
 
-2. Identify the workspace:
+2. Identify the workspace, set direct-CLI attribution, check for an upgrade, and
+   read the generated agent contract before editing:
 
 ```bash
 if [ -f "$HOME/.config/flutterflow/codex-env.sh" ]; then
   . "$HOME/.config/flutterflow/codex-env.sh"
 fi
+export FF_AI_AGENT_CLIENT="${FF_AI_AGENT_CLIENT:-codex}"
 pwd
-test -f .flutterflow/config.yaml && flutterflow ai upgrade --check
+test -f .flutterflow/config.yaml
+flutterflow ai upgrade --check
 ```
 
-3. Orient before editing:
+Read `AGENTS.md` completely, plus any nested instructions for files in scope.
+
+3. Confirm the active branch before any mutation. The active branch's
+   `project_id` in `.flutterflow/config.yaml` is what every push writes to; do
+   not blindly substitute the trunk project id:
+
+```bash
+flutterflow ai branch current
+flutterflow ai branch status
+```
+
+For checkout/merge/close details, use `flutterflow ai docs branches` and the
+workspace contract.
+
+4. Orient before editing. Prefer the generated typed SDK at
+   `lib/flutterflow_project.dart` and its per-entity files. Use
+   `generated_code/.flutterflow/export_manifest.json` to find runtime files when
+   diagnosing layout, rendering, or build behavior; treat `generated_code/` as
+   read-only. CLI summaries remain useful when needed:
 
 ```bash
 flutterflow ai status <project-id>
@@ -330,28 +390,37 @@ flutterflow ai resources <project-id>
 flutterflow ai search <project-id> --query "<feature-or-screen>"
 ```
 
-4. Capture intent when useful:
+5. Capture intent when useful:
 
 ```bash
 flutterflow ai plan save --content "<short implementation plan>"
 ```
 
-5. Author changes as Dart DSL files, then apply them. `run` validates internally
-   and only pushes on success, so iterate directly on `run`:
+6. Author changes using the workspace's current `AGENTS.md`. Use typed handles
+   from `lib/flutterflow_project.dart` for edit flows, not raw names. If the
+   workspace contract identifies an MCP fast-patch and the connected tool fits
+   the change, use it; otherwise use the CLI/DSL path.
+
+7. Run the workspace test gate before applying changes:
 
 ```bash
-flutterflow ai run <file.dart>
+flutterflow ai test
 ```
 
-   Use `flutterflow ai validate <file.dart>` only when you want validation output
-   *without* a push — CI pre-flight or an offline preview. It runs the same
-   pipeline as `run` minus the push, so it is not part of the normal edit loop.
+Use `flutterflow ai validate <file.dart>` when an offline/CI validation-only
+result is specifically useful.
 
-The implementation path is Dart DSL -> FFProject protobuf -> generated Flutter
-code. Avoid editing generated Flutter output when the requested change belongs
-in FlutterFlow project state.
+8. Apply the change with an explicit commit message:
 
-6. Verify and inspect the result:
+```bash
+flutterflow ai run <file.dart> --commit-message "<what changed and why>"
+```
+
+Remember the failure boundary described above: validation-phase failures do not
+push; later create/conflict/network/push/post-push failures are distinct and can
+have remote side effects.
+
+9. Verify and inspect the result:
 
 ```bash
 flutterflow ai history --limit 5
@@ -359,13 +428,16 @@ flutterflow ai trace latest
 flutterflow ai context-check
 ```
 
-7. Refresh stale local context when needed:
+10. Refresh project context after meaningful remote changes made outside this
+    workspace, and use diagnostics when needed:
 
 ```bash
 flutterflow ai refresh-context <project-id>
-flutterflow ai refresh-workspace --yes
 flutterflow ai doctor --json
 ```
+
+Use `refresh-workspace` only for an intentional managed-guidance refresh after
+reviewing its overwrite targets and backups; it is not a context-refresh step.
 
 ## Export Code
 
@@ -385,8 +457,10 @@ Set `FLUTTERFLOW_API_TOKEN` or pass `--token` for export/deploy commands. Keep
 
 - Inspect the current checkout and workspace before making edits.
 - Preserve user changes and avoid unrelated refactors.
-- `run` validates internally before pushing; reserve `validate` for offline/CI
-  pre-flight, not the normal edit loop.
+- Treat only validation-phase `run` failures as guaranteed no-push failures;
+  inspect later failures for remote side effects before retrying.
+- Use `validate` for a requested offline/CI validation-only result; use
+  `flutterflow ai test` as the normal pre-push workspace gate.
 - Report exact command failures with stderr/stdout summaries, but redact secrets.
 - Whenever you create, push to, or report on a project, give the user a
   **clickable** link to open it — format the FlutterFlow project URL as Markdown:

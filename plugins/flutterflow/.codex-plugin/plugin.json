@@ -1,7 +1,7 @@
 {
   "name": "flutterflow",
-  "version": "0.1.0+codex.20260702205233",
-  "description": "Use the FlutterFlow CLI from Codex, with optional workspace-bound MCP setup.",
+  "version": "0.1.0+codex.20260714211821",
+  "description": "Build and edit FlutterFlow projects from Codex with the CLI and workspace-bound MCP.",
   "author": {
     "name": "FlutterFlow",
     "email": "support@flutterflow.io",
@@ -20,13 +20,15 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "FlutterFlow",
-    "shortDescription": "Build and edit FlutterFlow apps with the CLI.",
-    "longDescription": "Adds FlutterFlow AI guidance for CLI-first workflows. Use it to initialize workspaces, inspect projects, plan changes, validate Dart DSL edits, apply updates, refresh workspace context, run diagnostics, and export code through the FlutterFlow CLI. MCP is documented as an optional workspace-bound setup, not started by default.",
+    "shortDescription": "Build and edit FlutterFlow apps from Codex.",
+    "longDescription": "Adds secure FlutterFlow AI onboarding and version-matched workspace guidance for typed project context, branch-aware editing, workspace tests, CLI pushes, diagnostics, code export, and project-scoped MCP. Current FlutterFlow workspaces can auto-register their vendored MCP server with Codex.",
     "developerName": "FlutterFlow",
     "category": "Developer Tools",
     "capabilities": [
       "CLI",
       "Project editing",
+      "Project-scoped MCP",
+      "Branch-aware workflows",
       "Workspace diagnostics"
     ],
     "defaultPrompt": [

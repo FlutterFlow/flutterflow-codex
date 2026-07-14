@@ -1,6 +1,12 @@
 #!/bin/sh
 set -eu
 
+# The upstream CLI cannot currently infer Codex from Codex's environment.
+# Preserve an explicit caller override; otherwise identify direct plugin-driven
+# CLI traffic as Codex for attribution.
+: "${FF_AI_AGENT_CLIENT:=codex}"
+export FF_AI_AGENT_CLIENT
+
 # Resolve the FlutterFlow CLI without changing the caller's working directory.
 # `flutterflow ai` discovers `.flutterflow/config.yaml` from the current
 # workspace for commands such as validate, run, and upgrade, so this wrapper
@@ -16,12 +22,7 @@ run_source_cli() {
   command -v dart >/dev/null 2>&1 || return 1
 
   package_config="$cli_dir/.dart_tool/package_config.json"
-  # Track whether the package config already existed. A 254 exit is only treated
-  # as a stale-config problem worth retrying when the config pre-existed; if we
-  # just resolved it below, a 254 is an application error and must not be re-run.
-  pkg_config_preexisting=1
   if [ ! -f "$package_config" ]; then
-    pkg_config_preexisting=0
     echo "Resolving FlutterFlow CLI dependencies in $cli_dir..." >&2
     if ! (cd "$cli_dir" && dart pub get >/dev/null); then
       echo "Failed to run dart pub get in $cli_dir." >&2
@@ -29,26 +30,10 @@ run_source_cli() {
     fi
   fi
 
-  if dart --packages="$package_config" "$cli_dir/bin/flutterflow_cli.dart" "$@"; then
-    exit 0
-  else
-    status=$?
-  fi
-
-  # Exit 254 is Dart's general error code: it can mean the CLI couldn't resolve
-  # packages (a stale package config after a pubspec or branch change) OR that the
-  # `flutterflow ai` command itself threw (network/API/app error). Only re-resolve
-  # and retry when the package config pre-existed — i.e. it may be stale. If we
-  # freshly resolved it above, or the status is anything else, propagate unchanged
-  # so a command (including a state-mutating one) is never silently run twice.
-  if [ "$status" -eq 254 ] && [ "$pkg_config_preexisting" -eq 1 ]; then
-    echo "Re-resolving FlutterFlow CLI dependencies in $cli_dir (stale package config)..." >&2
-    if (cd "$cli_dir" && dart pub get >/dev/null); then
-      exec dart --packages="$package_config" "$cli_dir/bin/flutterflow_cli.dart" "$@"
-    fi
-  fi
-
-  exit "$status"
+  # Invoke exactly once. Exit 254 is Dart's general error code and can represent
+  # an application, network, or package-resolution failure. Retrying here could
+  # execute a state-mutating command twice, so propagate every CLI exit unchanged.
+  exec dart --packages="$package_config" "$cli_dir/bin/flutterflow_cli.dart" "$@"
 }
 
 # 1. Explicit source checkout via FLUTTERFLOW_CLI_DIR (for local CLI development).

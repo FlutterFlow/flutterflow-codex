@@ -20,8 +20,12 @@ jobs:
             sh -n "$f"
           done
 
-      - name: Run clipboard hand-off tests
-        run: bash plugins/flutterflow/scripts/store-key-from-clipboard.test.sh
+      - name: Run helper-script tests
+        run: |
+          for f in plugins/flutterflow/scripts/*.test.sh; do
+            echo "test: $f"
+            bash "$f"
+          done
 
       - name: Validate JSON configs
         run: |
