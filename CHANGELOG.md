@@ -8,6 +8,8 @@ The base version follows [semantic versioning](https://semver.org). The
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-07-15
+
 ### Fixed
 
 - `flutterflow-cli.sh`: `set -e` no longer aborts the wrapper on the intended

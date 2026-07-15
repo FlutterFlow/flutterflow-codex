@@ -1,6 +1,6 @@
 {
   "name": "flutterflow",
-  "version": "0.1.0+codex.20260714211821",
+  "version": "0.1.1+codex.20260715192643",
   "description": "Build and edit FlutterFlow projects from Codex with the CLI and workspace-bound MCP.",
   "author": {
     "name": "FlutterFlow",
